@@ -22,7 +22,7 @@ extern "C" {
 #define LOOP_CYCLE 4000
 #define I_INTEGRAL_LIMIT 400
 #define PID_GAIN_LIMIT 400
-#define LOOP_FREQUENCY 1000000 / LOOP_CYCLE
+#define LOOP_FREQUENCY (1000000 / LOOP_CYCLE)
 
 #define SET_ROLL 1
 #define SET_PITCH 2
@@ -87,7 +87,10 @@ struct timeval st, et, sending_timer;
 int keep_cmd_led = 0;
 int sending_idx_pid = -1;
 
-const float coeff_gyro_angle = 1 / (LOOP_FREQUENCY / 65.5);
+const double one = 1;
+const double freq = LOOP_FREQUENCY;
+const double rad = 65.5;
+const double coeff_gyro_angle = one / freq / rad;
 
 int target_power = 0;
 float pid[12];
@@ -101,17 +104,17 @@ bool initialized = false;
 bool delayed = false;
 
 long gyro_x_cal, gyro_y_cal, gyro_z_cal;
-float gyro_roll, gyro_pitch, gyro_yaw;
-float angle_roll_acc, angle_pitch_acc, angle_pitch, angle_roll;
-float angle_roll_output, angle_pitch_output;
+double gyro_roll, gyro_pitch, gyro_yaw;
+double angle_roll_acc, angle_pitch_acc, angle_pitch, angle_roll;
+double angle_roll_output, angle_pitch_output;
 
-float r_i_integral = 0, p_i_integral = 0, y_i_integral = 0;
-float r_error_temp, p_error_temp, y_error_temp;
-float last_r_error_temp, last_p_error_temp, last_y_error_temp;
-float r_pid_control = 0, p_pid_control, y_pid_control;
+double r_i_integral = 0, p_i_integral = 0, y_i_integral = 0;
+double r_error_temp, p_error_temp, y_error_temp;
+double last_r_error_temp, last_p_error_temp, last_y_error_temp;
+double r_pid_control = 0, p_pid_control, y_pid_control;
 int output[4];
 
-float r_target_deg = 0, p_target_deg = 0, y_target_deg = 0;
+double r_target_deg = 0, p_target_deg = 0, y_target_deg = 0;
 float roll_trim = 0, pitch_trim = 0, yaw_trim = 0;
 
 int mpu_i2c;
@@ -182,11 +185,11 @@ int main(int argc, char* argv[]) {
 
 		gettimeofday(&st, NULL);
 
-//		cout << "acc x,y,z : " << acc_x << ", " << acc_y << ", " << acc_z << endl;
+	//	cout << "acc x,y,z : " << acc_x << ", " << acc_y << ", " << acc_z << endl;
 	//	cout << "gyro r,p,y : " << setw(8) << setprecision(3) << gyro_roll << ", ";
 	//	cout << setw(8) << setprecision(3) << gyro_pitch << ", ";
 	//	cout << setw(8) << setprecision(3) << gyro_yaw << endl;
-	//	cout << "angle roll, pitch : " << angle_roll_output << ", " << angle_pitch_output << endl;
+		cout << "angle roll, pitch : " << angle_roll_output << ", " << angle_pitch_output << endl;
 
 	}
 
@@ -280,18 +283,20 @@ void calculate_angles(){
 	gyro_pitch = (gyro_pitch * 0.7) + ((gyro_y / 65.5) * 0.3);
 	gyro_yaw = (gyro_yaw * 0.7) + ((gyro_z / 65.5) * 0.3);
 
-	angle_pitch += gyro_x * coeff_gyro_angle;
-	angle_roll += gyro_y * coeff_gyro_angle;
+	angle_pitch += gyro_x * 0.0000611;
+//	angle_pitch += gyro_x * coeff_gyro_angle;
+	angle_roll += gyro_y * 0.0000611;
+//	angle_roll += gyro_y * coeff_gyro_angle;
 
 	angle_pitch += angle_roll * sin(gyro_z * 0.000001066);
 	angle_roll -= angle_pitch * sin(gyro_z * 0.000001066);
 
 	acc_total_vector = sqrt((acc_x * acc_x) + (acc_y * acc_y) + (acc_z * acc_z));
 	if(abs(acc_y) < acc_total_vector){
-		angle_pitch_acc = asin((float)acc_y / acc_total_vector) * 57.296;
+		angle_pitch_acc = asin((double)acc_y / acc_total_vector) * 57.296;
 	}
 	if(abs(acc_x) < acc_total_vector){
-		angle_roll_acc = asin((float)acc_x / acc_total_vector) * -57.296;
+		angle_roll_acc = asin((double)acc_x / acc_total_vector) * -57.296;
 	}
 
 	angle_pitch_acc -= 0.0;
@@ -299,6 +304,7 @@ void calculate_angles(){
 
 	if(initialized){
 		angle_pitch = angle_pitch * 0.9996 + angle_pitch_acc * 0.0004;
+		angle_roll = angle_roll * 0.9996 + angle_roll_acc * 0.0004;
 	} else {
 		angle_pitch = angle_pitch_acc;
 		angle_roll = angle_roll_acc;
@@ -306,7 +312,7 @@ void calculate_angles(){
 	}
 
 	angle_roll_output = angle_roll_output * 0.9 + angle_pitch * 0.1;
-	angle_pitch_output = angle_pitch_output * 0.2 + angle_roll * 0.1;
+	angle_pitch_output = angle_pitch_output * 0.9 + angle_roll * 0.1;
 }
 
 void calculate_pid(){
@@ -505,22 +511,22 @@ void send_pid_value(float value){
 		return;
 	}
   
-	union Scomp_float {
+	union Scomp_double {
 		float temp;
 		uint8_t byte_s[4];
-	} s_float;
+	} s_double;
   
 	uint8_t temp[CMD_BUFF_LEN];
 //	uint32_t u_temp = (uint32_t)value;
 
-	s_float.temp = value;
+	s_double.temp = value;
   
 	temp[0] = CMD_GET_PID;
 	temp[1] = sending_idx_pid++;
-	temp[2] = s_float.byte_s[3];
-	temp[3] = s_float.byte_s[2];
-	temp[4] = s_float.byte_s[1];
-	temp[5] = s_float.byte_s[0];
+	temp[2] = s_double.byte_s[3];
+	temp[3] = s_double.byte_s[2];
+	temp[4] = s_double.byte_s[1];
+	temp[5] = s_double.byte_s[0];
 	temp[6] = 0;
 	temp[7] = 0;
 
