@@ -24,6 +24,10 @@ extern "C" {
 #define PID_GAIN_LIMIT 400
 #define LOOP_FREQUENCY (1000000 / LOOP_CYCLE)
 
+#define FLIGHT_MODE_ACRO 1
+#define FLIGHT_MODE_ANGLE 2
+#define FLIGHT_MODE_HORIZON 3
+
 #define SET_ROLL 1
 #define SET_PITCH 2
 #define SET_YAW 3
@@ -100,6 +104,7 @@ int16_t gyro_x, gyro_y, gyro_z;
 int16_t mpu_temperature;
 int32_t acc_total_vector;
 
+int flight_mode = FLIGHT_MODE_ANGLE;
 bool initialized = false;
 bool delayed = false;
 
@@ -112,6 +117,7 @@ double r_i_integral = 0, p_i_integral = 0, y_i_integral = 0;
 double r_error_temp, p_error_temp, y_error_temp;
 double last_r_error_temp, last_p_error_temp, last_y_error_temp;
 double r_pid_control = 0, p_pid_control, y_pid_control;
+double roll_sensitivity = 1, pitch_sensitivity = 1, yaw_sensitivity = 1;
 int output[4];
 
 double r_target_deg = 0, p_target_deg = 0, y_target_deg = 0;
@@ -189,7 +195,7 @@ int main(int argc, char* argv[]) {
 	//	cout << "gyro r,p,y : " << setw(8) << setprecision(3) << gyro_roll << ", ";
 	//	cout << setw(8) << setprecision(3) << gyro_pitch << ", ";
 	//	cout << setw(8) << setprecision(3) << gyro_yaw << endl;
-		cout << "angle roll, pitch : " << angle_roll_output << ", " << angle_pitch_output << endl;
+	//	cout << "angle roll, pitch : " << angle_roll_output << ", " << angle_pitch_output << endl;
 
 	}
 
@@ -316,9 +322,20 @@ void calculate_angles(){
 }
 
 void calculate_pid(){
-	r_error_temp = gyro_roll - r_target_deg;
-	p_error_temp = gyro_pitch - p_target_deg;
-	y_error_temp = gyro_yaw - y_target_deg;
+	switch(flight_mode){
+		case FLIGHT_MODE_ANGLE:
+			r_error_temp = gyro_roll - pid[ROLL_OUTER_P] * (r_target_deg - roll_trim - angle_roll_output);
+			p_error_temp = gyro_pitch - pid[PITCH_OUTER_Pd] * (p_target_deg - pitch_trim - angle_pitch_output);
+			y_error_temp = gyro_yaw - y_target_deg * yaw_sensitivity;
+			break;
+		case FLIGHT_MODE_ACRO:
+			r_error_temp = gyro_roll - r_target_deg * roll_sensitivity;
+			p_error_temp = gyro_pitch - p_target_deg * pitch_sensitivity;
+			y_error_temp = gyro_yaw - y_target_deg * yaw_sensitivity;
+			break;
+		case FLIGHT_MODE_HORIZON:
+			break;
+	}
 
 	if(target_power > 0){
 		r_i_integral += pid[ROLL_I] * r_error_temp;
@@ -448,16 +465,16 @@ void receive_messages(){
 
 void init_pid_values(){
 	pid[ROLL_OUTER_P] = 0;
-	pid[ROLL_P] = 0.95;
+	pid[ROLL_P] = 0.72;
 	pid[ROLL_I] = 0.1;
-	pid[ROLL_D] = 13.5;
+	pid[ROLL_D] = 10;
 	pid[PITCH_OUTER_P] = 0;
-	pid[PITCH_P] = 0.95;
+	pid[PITCH_P] = 0.72;
 	pid[PITCH_I] = 0.1;
-	pid[PITCH_D] = 13.5;
+	pid[PITCH_D] = 10;
 	pid[YAW_OUTER_P] = 0;
-	pid[YAW_P] = 3.6;
-	pid[YAW_I] = 0.04;
+	pid[YAW_P] = 2;
+	pid[YAW_I] = 0.03;
 	pid[YAW_D] = 0;
 }
 
