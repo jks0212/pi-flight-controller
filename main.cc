@@ -156,7 +156,7 @@ int main(int argc, char* argv[]) {
 	gpioWrite(LED_RED, 1);
 	gpioWrite(LED_GREEN, 1);
 
-	sleep(5);
+	sleep(3);
 
 	init_mpu();
 	init_rf24();
@@ -185,7 +185,7 @@ int main(int argc, char* argv[]) {
 		int cycle_time = utime_diff(st, et);
 		delayed = false;
 		if(cycle_time >= LOOP_CYCLE){
-			cout << "Cycle over: " << cycle_time << "us" << endl;
+			// cout << "Cycle over: " << cycle_time << "us" << endl;
 			red_led_time = LED_ON_TIME;
 			delayed = true;
 		} else{
@@ -286,9 +286,9 @@ void calibrate_gyro(){
 	for(int i=0; i<GYRO_CAL_NUMS; i++){
 		gettimeofday(&start, NULL);
 
-		if(i % 125 == 0){
-			cout << ".";
-		}
+		// if(i % 125 == 0){
+		// 	cout << ".";
+		// }
 	
 		read_mpu_data();
 		gyro_x_cal += gyro_x;
@@ -316,7 +316,7 @@ void calibrate_gyro(){
 	gyro_y_cal /= GYRO_CAL_NUMS;
 	gyro_z_cal /= GYRO_CAL_NUMS;
 
-	cout << endl << "Gyro calibration done." << endl;
+	cout << "Gyro calibration done." << endl;
 }
 
 void calculate_angles(){
