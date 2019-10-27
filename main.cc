@@ -60,11 +60,13 @@ extern "C" {
 #define POWER_VALUE_THRESHOLD     100
 #define CMD_BUFF_LEN          8
 //#define GREEN_LED_PIN         8
+#define LED_GREEN 16
+#define LED_RED   12
 
 #define PID_START_ADDR        0
 #define TRIM_START_ADDR       48
 
-#define KEEP_COMMAND_LED_ON   20
+#define LED_ON_TIME   100
 
 #define MOTOR_1 4
 #define MOTOR_2 17
@@ -87,8 +89,9 @@ RF24 radio(RPI_V2_GPIO_P1_22, RPI_V2_GPIO_P1_24, BCM2835_SPI_SPEED_8MHZ);
 const uint64_t pipes[2] = {0x0000000106L, 0x0000000100L};
 char rfBuffer[CMD_BUFF_LEN] = {0};
 
-struct timeval st, et, sending_timer;
-int keep_cmd_led = 0;
+struct timeval st, et, led_tv, sending_timer;
+int green_led_time = 0;
+int red_led_time = 0;
 int sending_idx_pid = -1;
 
 const double one = 1;
@@ -104,7 +107,7 @@ int16_t gyro_x, gyro_y, gyro_z;
 int16_t mpu_temperature;
 int32_t acc_total_vector;
 
-int flight_mode = FLIGHT_MODE_ANGLE;
+int flight_mode = FLIGHT_MODE_ACRO;
 bool initialized = false;
 bool delayed = false;
 
@@ -147,6 +150,14 @@ int main(int argc, char* argv[]) {
 		return 0;
 	}
 
+	gpioSetMode(LED_RED, PI_OUTPUT);
+	gpioSetMode(LED_GREEN, PI_OUTPUT);
+
+	gpioWrite(LED_RED, 1);
+	gpioWrite(LED_GREEN, 1);
+
+	sleep(5);
+
 	init_mpu();
 	init_rf24();
 	init_pid_values();
@@ -175,6 +186,7 @@ int main(int argc, char* argv[]) {
 		delayed = false;
 		if(cycle_time >= LOOP_CYCLE){
 			cout << "Cycle over: " << cycle_time << "us" << endl;
+			red_led_time = LED_ON_TIME;
 			delayed = true;
 		} else{
 			while(utime_diff(st, et) < LOOP_CYCLE){
@@ -187,6 +199,22 @@ int main(int argc, char* argv[]) {
 			gpioPWM(MOTOR_2, output[1]);
 			gpioPWM(MOTOR_3, output[2]);
 			gpioPWM(MOTOR_4, output[3]);
+		}
+
+		gettimeofday(&led_tv, NULL);
+
+		int elapsed = utime_diff(st, led_tv) / 1000;
+		if(green_led_time > 0){
+			gpioWrite(LED_GREEN, 1);
+			green_led_time -= elapsed;
+		} else{
+			gpioWrite(LED_GREEN, 0);
+		}
+		if(red_led_time > 0){
+			gpioWrite(LED_RED, 1);
+			red_led_time -= elapsed;
+		} else{
+			gpioWrite(LED_RED, 0);
 		}
 
 		gettimeofday(&st, NULL);
@@ -216,6 +244,7 @@ void init_mpu(){
 		cout << "Failed to confiture MPU." << endl;
 		exit(1);
 	}
+//	if(i2cWriteByteData(mpu_i2c, 0x1A, 0x02) < 0){
 	if(i2cWriteByteData(mpu_i2c, 0x1A, 0x03) < 0){
 		cout << "Failed to confiture MPU." << endl;
 		exit(1);
@@ -266,11 +295,21 @@ void calibrate_gyro(){
 		gyro_y_cal += gyro_y;
 		gyro_z_cal += gyro_z;
 
+		int led_val = i % 20;
+		if(led_val >=0 && led_val < 10){		
+			gpioWrite(LED_GREEN, 1);
+			gpioWrite(LED_RED, 1);
+		} else{
+			gpioWrite(LED_GREEN, 0);
+			gpioWrite(LED_RED, 0);
+		}
+
 		gettimeofday(&end, NULL);
 
 		while(utime_diff(start, end) < 4000){
 			gettimeofday(&end, NULL);
 		}
+
 	}
 
 	gyro_x_cal /= GYRO_CAL_NUMS;
@@ -325,7 +364,7 @@ void calculate_pid(){
 	switch(flight_mode){
 		case FLIGHT_MODE_ANGLE:
 			r_error_temp = gyro_roll - pid[ROLL_OUTER_P] * (r_target_deg - roll_trim - angle_roll_output);
-			p_error_temp = gyro_pitch - pid[PITCH_OUTER_Pd] * (p_target_deg - pitch_trim - angle_pitch_output);
+			p_error_temp = gyro_pitch - pid[PITCH_OUTER_P] * (p_target_deg - pitch_trim - angle_pitch_output);
 			y_error_temp = gyro_yaw - y_target_deg * yaw_sensitivity;
 			break;
 		case FLIGHT_MODE_ACRO:
@@ -438,7 +477,7 @@ void receive_messages(){
 				}
 			}
 
-			keep_cmd_led = KEEP_COMMAND_LED_ON;
+			green_led_time = LED_ON_TIME;
 
 		} else {
 			cout << "Error to read RF data" << endl;
