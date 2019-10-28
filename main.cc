@@ -397,8 +397,8 @@ void calculate_pid(){
 	else if(y_i_integral < -I_INTEGRAL_LIMIT) y_i_integral = -I_INTEGRAL_LIMIT;
 
 	r_pid_control = pid[ROLL_P] * r_error_temp + r_i_integral + pid[ROLL_D] * (r_error_temp - last_r_error_temp);
-	p_pid_control = pid[PITCH_P] * p_error_temp + p_i_integral + pid[PITCH_D] * (p_error_temp - last_p_error_temp);
-	y_pid_control = pid[YAW_P] * y_error_temp + y_i_integral + pid[YAW_D] * (y_error_temp - last_y_error_temp);
+	// p_pid_control = pid[PITCH_P] * p_error_temp + p_i_integral + pid[PITCH_D] * (p_error_temp - last_p_error_temp);
+	// y_pid_control = pid[YAW_P] * y_error_temp + y_i_integral + pid[YAW_D] * (y_error_temp - last_y_error_temp);
 
 	last_r_error_temp = r_error_temp;
 	last_p_error_temp = p_error_temp;
@@ -417,8 +417,8 @@ void set_motors_output(){
 		int power = MOTOR_MIN + target_power * 9;
 		
 		output[0] = power + r_pid_control - p_pid_control - y_pid_control;
-		output[1] = power + r_pid_control + p_pid_control + y_pid_control;
-		output[2] = power - r_pid_control - p_pid_control + y_pid_control;
+		// output[1] = power + r_pid_control + p_pid_control + y_pid_control;
+		// output[2] = power - r_pid_control - p_pid_control + y_pid_control;
 		output[3] = power - r_pid_control + p_pid_control - y_pid_control;
 
 		for(int i=0; i<4; i++){
