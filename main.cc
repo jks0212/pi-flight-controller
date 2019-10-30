@@ -98,7 +98,8 @@ int sending_idx_pid = -1;
 const double one = 1;
 const double freq = LOOP_FREQUENCY;
 const double rad = 65.5;
-const double coeff_gyro_angle = one / freq / rad;
+const double coeff_gyro_angle1 = one / freq / rad;
+const double coeff_gyro_angle2 = coeff_gyro_angle1 * (3.14 / 180);
 
 int target_power = 0;
 float pid[12];
@@ -330,12 +331,12 @@ void calculate_angles(){
 	gyro_yaw = (gyro_yaw * 0.7) + ((gyro_z / 65.5) * 0.3);
 
 //	angle_pitch += gyro_x * 0.0000611;
-	angle_pitch += gyro_x * coeff_gyro_angle;
+	angle_pitch += gyro_x * coeff_gyro_angle1;
 //	angle_roll += gyro_y * 0.0000611;
-	angle_roll += gyro_y * coeff_gyro_angle;
+	angle_roll += gyro_y * coeff_gyro_angle1;
 
-	angle_pitch += angle_roll * sin(gyro_z * 0.000001066);
-	angle_roll -= angle_pitch * sin(gyro_z * 0.000001066);
+	angle_pitch += angle_roll * sin(gyro_z * coeff_gyro_angle2);
+	angle_roll -= angle_pitch * sin(gyro_z * coeff_gyro_angle2);
 
 	acc_total_vector = sqrt((acc_x * acc_x) + (acc_y * acc_y) + (acc_z * acc_z));
 	if(abs(acc_y) < acc_total_vector){
