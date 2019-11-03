@@ -145,6 +145,8 @@ int utime_diff(timeval start, timeval end);
 int parse_command_byte(char cmd, int default_val);
 float make_float(uint8_t buf[]);
 
+static int i = 0;
+
 int main(int argc, char* argv[]) {
 
 	if(gpioInitialise() < 0){
@@ -219,7 +221,19 @@ int main(int argc, char* argv[]) {
 			gpioWrite(LED_RED, 0);
 		}
 
+		if(angle_roll_output > 4 || angle_pitch_output > 4 
+			|| angle_roll_output < -4 || angle_pitch_output < -4){
+			red_led_time = LED_ON_TIME;
+		}
+
+
 		gettimeofday(&st, NULL);
+
+	//	if(i++ > 20){
+		//	cout << angle_roll_output << ", " << angle_pitch_output << ", " << gyro_z << endl;
+	//		cout << gyro_x << ", " << gyro_y << ", " << gyro_z << endl;
+	//		i = 0;
+	//	}
 
 	//	cout << "acc x,y,z : " << acc_x << ", " << acc_y << ", " << acc_z << endl;
 	//	cout << "gyro r,p,y : " << setw(8) << setprecision(3) << gyro_roll << ", ";
@@ -246,8 +260,8 @@ void init_mpu(){
 		cout << "Failed to confiture MPU." << endl;
 		exit(1);
 	}
-//	if(i2cWriteByteData(mpu_i2c, 0x1A, 0x02) < 0){
-	if(i2cWriteByteData(mpu_i2c, 0x1A, 0x03) < 0){
+	if(i2cWriteByteData(mpu_i2c, 0x1A, 0x02) < 0){
+//	if(i2cWriteByteData(mpu_i2c, 0x1A, 0x03) < 0){
 		cout << "Failed to confiture MPU." << endl;
 		exit(1);
 	}
@@ -330,13 +344,15 @@ void calculate_angles(){
 	gyro_pitch = (gyro_pitch * 0.7) + ((gyro_y / 65.5) * 0.3);
 	gyro_yaw = (gyro_yaw * 0.7) + ((gyro_z / 65.5) * 0.3);
 
-//	angle_pitch += gyro_x * 0.0000611;
-	angle_pitch += gyro_x * coeff_gyro_angle1;
-//	angle_roll += gyro_y * 0.0000611;
-	angle_roll += gyro_y * coeff_gyro_angle1;
+	angle_pitch += gyro_x * 0.0000611;
+//	angle_pitch += gyro_x * coeff_gyro_angle1;
+	angle_roll += gyro_y * 0.0000611;
+//	angle_roll += gyro_y * coeff_gyro_angle1;
 
-	angle_pitch += angle_roll * sin(gyro_z * coeff_gyro_angle2);
-	angle_roll -= angle_pitch * sin(gyro_z * coeff_gyro_angle2);
+	angle_pitch += angle_roll * sin(gyro_z * 0.000000533);
+//	angle_pitch += angle_roll * sin(gyro_z * coeff_gyro_angle2);
+	angle_roll -= angle_pitch * sin(gyro_z * 0.000000533);
+//	angle_roll -= angle_pitch * sin(gyro_z * coeff_gyro_angle2);
 
 	acc_total_vector = sqrt((acc_x * acc_x) + (acc_y * acc_y) + (acc_z * acc_z));
 	if(abs(acc_y) < acc_total_vector){
@@ -506,16 +522,16 @@ void receive_messages(){
 
 void init_pid_values(){
 	pid[ROLL_OUTER_P] = 0;
-	pid[ROLL_P] = 0.72;
-	pid[ROLL_I] = 0.1;
-	pid[ROLL_D] = 10;
+	pid[ROLL_P] = 1.7;
+	pid[ROLL_I] = 0.03;
+	pid[ROLL_D] = 13;
 	pid[PITCH_OUTER_P] = 0;
-	pid[PITCH_P] = 0.72;
-	pid[PITCH_I] = 0.1;
-	pid[PITCH_D] = 10;
+	pid[PITCH_P] = 1.7;
+	pid[PITCH_I] = 0.03;
+	pid[PITCH_D] = 13;
 	pid[YAW_OUTER_P] = 0;
-	pid[YAW_P] = 2;
-	pid[YAW_I] = 0.03;
+	pid[YAW_P] = 0;
+	pid[YAW_I] = 0;
 	pid[YAW_D] = 0;
 }
 
