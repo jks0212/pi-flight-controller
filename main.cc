@@ -55,6 +55,12 @@ extern "C" {
 #define CMD_SET_PID           0x70
 #define CMD_GET_TRIM          0X71
 #define CMD_SET_TRIM          0x72
+#define CMD_SET_TRIM_OFFSE    0x73
+
+#define OFFSET_DIRECTION_FORWARD  1
+#define OFFSET_DIRECTION_BACKWARD 2
+#define OFFSET_DIRECTION_LEFT     3
+#define OFFSET_DIRECTION_RIGHT    4
 
 #define CONTROL_VALUE_THRESHOLD   40
 #define POWER_VALUE_THRESHOLD     100
@@ -84,6 +90,10 @@ enum PID_IDX {
 	PID_IDX_END
 };
 
+enum TRIM_IDX {
+	TRIM_ROLL, TRIM_PITCH, TRIM_YAW, TRIM_IDX_END
+}
+
 using namespace std;
 
 RF24 radio(RPI_V2_GPIO_P1_22, RPI_V2_GPIO_P1_24, BCM2835_SPI_SPEED_8MHZ);
@@ -94,6 +104,7 @@ struct timeval st, et, led_tv, sending_timer;
 int green_led_time = 0;
 int red_led_time = 0;
 int sending_idx_pid = -1;
+int sending_dix_trim = -1;
 
 const double one = 1;
 const double freq = LOOP_FREQUENCY;
@@ -344,15 +355,15 @@ void calculate_angles(){
 	gyro_pitch = (gyro_pitch * 0.7) + ((gyro_y / 65.5) * 0.3);
 	gyro_yaw = (gyro_yaw * 0.7) + ((gyro_z / 65.5) * 0.3);
 
-	angle_pitch += gyro_x * 0.0000611;
-//	angle_pitch += gyro_x * coeff_gyro_angle1;
-	angle_roll += gyro_y * 0.0000611;
-//	angle_roll += gyro_y * coeff_gyro_angle1;
+	// angle_pitch += gyro_x * 0.0000611;
+	angle_pitch += gyro_x * coeff_gyro_angle1;
+	// angle_roll += gyro_y * 0.0000611;
+	angle_roll += gyro_y * coeff_gyro_angle1;
 
-	angle_pitch += angle_roll * sin(gyro_z * 0.000000533);
-//	angle_pitch += angle_roll * sin(gyro_z * coeff_gyro_angle2);
-	angle_roll -= angle_pitch * sin(gyro_z * 0.000000533);
-//	angle_roll -= angle_pitch * sin(gyro_z * coeff_gyro_angle2);
+	// angle_pitch += angle_roll * sin(gyro_z * 0.000000533);
+	angle_pitch += angle_roll * sin(gyro_z * coeff_gyro_angle2);
+	// angle_roll -= angle_pitch * sin(gyro_z * 0.000000533);
+	angle_roll -= angle_pitch * sin(gyro_z * coeff_gyro_angle2);
 
 	acc_total_vector = sqrt((acc_x * acc_x) + (acc_y * acc_y) + (acc_z * acc_z));
 	if(abs(acc_y) < acc_total_vector){
@@ -475,6 +486,8 @@ void receive_messages(){
 			
 			} else if(rfBuffer[0] == CMD_GET_PID){
 				sending_idx_pid = 0;
+			} else if(rfBuffer[0] == CMD_GET_TRIM){
+				sending_idx_trim = 0;
 			} else if(rfBuffer[0] == CMD_SET_PID){
 				uint8_t values[4] = {rfBuffer[2], rfBuffer[3], rfBuffer[4], rfBuffer[5]};
 				pid[(uint8_t)rfBuffer[1]] = make_float(values);
@@ -491,6 +504,22 @@ void receive_messages(){
 						break;
 					 case TRIM_YAW:
 						yaw_trim = make_float(values);
+						break;
+				}
+			} else if(rfBuffer[0] == CMD_SET_TRIM_OFFSE){
+				uint8_t direction = rfBuffer[1];
+				switch(direction){
+					case OFFSET_DIRECTION_FORWARD:
+						pitch_trim += 0.1;
+						break;
+					case OFFSET_DIRECTION_BACKWARD:
+						pitch_trim -= 0.1;
+						break;
+					case OFFSET_DIRECTION_LEFT:
+						roll_trim -= 0.1;
+						break;
+					case OFFSET_DIRECTION_RIGHT:
+						roll_trim += 0.1;
 						break;
 				}
 			}
@@ -517,6 +546,8 @@ void receive_messages(){
 
 	if(sending_idx_pid != -1){
 		send_pid_value(pid[sending_idx_pid]);
+	} else if(sending_idx_trim != -1){
+		send_trim_value();
 	}
 }
 
@@ -607,6 +638,51 @@ void send_pid_value(float value){
 	radio.stopListening();
 	if(!radio.write(&temp, CMD_BUFF_LEN)){
 		cout << "Error to send PID value" << endl;
+	}
+	radio.startListening();
+}
+
+void send_trim_value(){
+	if(!is_enough_sending_delay()){
+		return;
+	}
+
+	if(sending_idx_trim >= TRIM_IDX_END){
+		sending_idx_trim = -1;
+		return;
+	}
+
+	union Scomp_double {
+		float temp;
+		uint8_t byte_s[4];
+	} s_double;
+
+	uint8_t temp[CMD_BUFF_LEN];
+
+	switch(++sending_idx_trim){
+		case TRIM_ROLL:
+			s_double.temp = roll_trim; 
+			break;
+		case TRIM_PITCH: 
+			s_double.temp = pitch_trim; 
+			break;
+		case TRIM_YAW: 
+			s_double.temp = yaw_trim; 
+			break;
+	}
+
+	temp[0] = CMD_GET_TRIM;
+	temp[1] = sending_idx_trim;
+	temp[2] = s_double.byte_s[3];
+	temp[3] = s_double.byte_s[2];
+	temp[4] = s_double.byte_s[1];
+	temp[5] = s_double.byte_s[0];
+	temp[6] = 0;
+	temp[7] = 0;
+
+	radio.stopListening();
+	if(!radio.write(&temp, CMD_BUFF_LEN)){
+		cout << "Error to send Trim value" << endl;
 	}
 	radio.startListening();
 }
