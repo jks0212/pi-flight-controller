@@ -44,9 +44,9 @@ extern "C" {
 #define SET_YAW_P 14
 #define SET_YAW_I 15
 #define SET_YAW_D 16
-#define TRIM_ROLL 20
-#define TRIM_PITCH 21
-#define TRIM_YAW 22
+//#define TRIM_ROLL 20
+//#define TRIM_PITCH 21
+//#define TRIM_YAW 22
 
 #define CMD_NONE              0x00
 #define CMD_HEADER_START      0x6E
@@ -92,7 +92,7 @@ enum PID_IDX {
 
 enum TRIM_IDX {
 	TRIM_ROLL, TRIM_PITCH, TRIM_YAW, TRIM_IDX_END
-}
+};
 
 using namespace std;
 
@@ -104,7 +104,7 @@ struct timeval st, et, led_tv, sending_timer;
 int green_led_time = 0;
 int red_led_time = 0;
 int sending_idx_pid = -1;
-int sending_dix_trim = -1;
+int sending_idx_trim = -1;
 
 const double one = 1;
 const double freq = LOOP_FREQUENCY;
@@ -146,6 +146,7 @@ void init_rf24();
 void read_mpu_data();
 bool is_enough_sending_delay();
 void send_pid_value(float value);
+void send_trim_value();
 void receive_messages();
 void calibrate_gyro();
 void calculate_angles();
@@ -156,7 +157,7 @@ int utime_diff(timeval start, timeval end);
 int parse_command_byte(char cmd, int default_val);
 float make_float(uint8_t buf[]);
 
-static int i = 0;
+// static int i = 0;
 
 int main(int argc, char* argv[]) {
 
@@ -232,10 +233,10 @@ int main(int argc, char* argv[]) {
 			gpioWrite(LED_RED, 0);
 		}
 
-		if(angle_roll_output > 4 || angle_pitch_output > 4 
-			|| angle_roll_output < -4 || angle_pitch_output < -4){
-			red_led_time = LED_ON_TIME;
-		}
+	//	if(angle_roll_output > 4 || angle_pitch_output > 4 
+	//		|| angle_roll_output < -4 || angle_pitch_output < -4){
+	//		red_led_time = LED_ON_TIME;
+	//	}
 
 
 		gettimeofday(&st, NULL);
@@ -546,7 +547,7 @@ void receive_messages(){
 
 	if(sending_idx_pid != -1){
 		send_pid_value(pid[sending_idx_pid]);
-	} else if(sending_idx_trim != -1){
+	}else if(sending_idx_trim != -1){
 		send_trim_value();
 	}
 }
@@ -659,7 +660,7 @@ void send_trim_value(){
 
 	uint8_t temp[CMD_BUFF_LEN];
 
-	switch(++sending_idx_trim){
+	switch(sending_idx_trim){
 		case TRIM_ROLL:
 			s_double.temp = roll_trim; 
 			break;
@@ -672,7 +673,7 @@ void send_trim_value(){
 	}
 
 	temp[0] = CMD_GET_TRIM;
-	temp[1] = sending_idx_trim;
+	temp[1] = sending_idx_trim++;
 	temp[2] = s_double.byte_s[3];
 	temp[3] = s_double.byte_s[2];
 	temp[4] = s_double.byte_s[1];
