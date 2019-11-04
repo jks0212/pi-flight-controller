@@ -156,6 +156,7 @@ void init_pid_values();
 int utime_diff(timeval start, timeval end);
 int parse_command_byte(char cmd, int default_val);
 float make_float(uint8_t buf[]);
+void write_pid();
 
 // static int i = 0;
 
@@ -492,6 +493,7 @@ void receive_messages(){
 			} else if(rfBuffer[0] == CMD_SET_PID){
 				uint8_t values[4] = {rfBuffer[2], rfBuffer[3], rfBuffer[4], rfBuffer[5]};
 				pid[(uint8_t)rfBuffer[1]] = make_float(values);
+				write_pid();
 			} else if(rfBuffer[0] == CMD_GET_TRIM){
 			
 			} else if(rfBuffer[0] == CMD_SET_TRIM){
@@ -686,6 +688,24 @@ void send_trim_value(){
 		cout << "Error to send Trim value" << endl;
 	}
 	radio.startListening();
+}
+
+void write_pid(){
+	string pid_str = "";
+	for(int i=0; i<12; i++){
+		if(i != 0){
+			pid_str = pid_str + ",";
+		}
+		pid_str = pid_str + to_string(pid[i]);
+	}
+
+	char temp[200];
+	strcpy(temp, pid_str.c_str());
+	FILE *fp;
+	if((fp = fopen("config", "w")) != NULL){
+		fprintf(fp, "%s", temp);
+		fclose(fp);
+	}
 }
 
 
