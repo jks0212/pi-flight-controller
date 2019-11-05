@@ -517,6 +517,7 @@ void receive_messages(){
 						yaw_trim = make_float(values);
 						break;
 				}
+				write_trim();
 			} else if(rfBuffer[0] == CMD_SET_TRIM_OFFSE){
 				uint8_t direction = rfBuffer[1];
 				switch(direction){
@@ -533,6 +534,7 @@ void receive_messages(){
 						roll_trim += 0.1;
 						break;
 				}
+				write_trim();
 			}
 
 			green_led_time = LED_ON_TIME;
@@ -730,11 +732,13 @@ void write_trim(){
 void read_pid(){
 	char temp[200];
 	FILE *fp;
-	if((fp = fopen(pid_file_name,"%s", temp)) != NULL){
+	if((fp = fopen(pid_file_name, "r")) != NULL){
+		fgets(temp, sizeof(temp), fp);
 		char *tok = strtok(temp, ",");
 		int i = 0;
 		while(tok != NULL){
 			pid[i++] = stof(string(tok));
+			tok = strtok(NULL, ",");
 		}
 	}
 }
@@ -742,7 +746,8 @@ void read_pid(){
 void read_trim(){
 	char temp[100];
 	FILE *fp;
-	if((fp = fopen(trim_file_name,"%s", temp)) != NULL){
+	if((fp = fopen(trim_file_name, "r")) != NULL){
+		fgets(temp, sizeof(temp), fp);
 		char *tok = strtok(temp, ",");
 		int i = 0;
 		while(tok != NULL){
@@ -757,6 +762,7 @@ void read_trim(){
 					yaw_trim = stof(string(tok));
 					break;
 			}
+			tok = strtok(NULL, ",");
 		}
 	}
 }
