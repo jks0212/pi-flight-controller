@@ -112,6 +112,9 @@ const double rad = 65.5;
 const double coeff_gyro_angle1 = one / freq / rad;
 const double coeff_gyro_angle2 = coeff_gyro_angle1 * (3.14 / 180);
 
+const char pid_file_name[] = "pid.conf";
+const char trim_file_name[] = "trim.conf";
+
 int target_power = 0;
 float pid[12];
 
@@ -156,7 +159,10 @@ void init_pid_values();
 int utime_diff(timeval start, timeval end);
 int parse_command_byte(char cmd, int default_val);
 float make_float(uint8_t buf[]);
+void read_pid();
+void read_trim();
 void write_pid();
+void write_trim();
 
 // static int i = 0;
 
@@ -177,7 +183,9 @@ int main(int argc, char* argv[]) {
 
 	init_mpu();
 	init_rf24();
-	init_pid_values();
+	// init_pid_values();
+	read_pid();
+	read_trim();
 	calibrate_gyro();
 
 	gpioSetPWMfrequency(MOTOR_1, 500);
@@ -702,9 +710,54 @@ void write_pid(){
 	char temp[200];
 	strcpy(temp, pid_str.c_str());
 	FILE *fp;
-	if((fp = fopen("config", "w")) != NULL){
+	if((fp = fopen(pid_file_name, "w")) != NULL){
 		fprintf(fp, "%s", temp);
 		fclose(fp);
+	}
+}
+
+void write_trim(){
+	string trim_str = to_string(roll_trim) + "," + to_string(pitch_trim) + "," + to_string(yaw_trim);
+	char temp[100];
+	strcpy(temp, trim_str.c_str());
+	FILE *fp;
+	if((fp = fopen(trim_file_name, "w")) != NULL){
+		fprintf(fp, "%s", temp);
+		fclose(fp);
+	}
+}
+
+void read_pid(){
+	char temp[200];
+	FILE *fp;
+	if((fp = fopen(pid_file_name,"%s", temp)) != NULL){
+		char *tok = strtok(temp, ",");
+		int i = 0;
+		while(tok != NULL){
+			pid[i++] = stof(string(tok));
+		}
+	}
+}
+
+void read_trim(){
+	char temp[100];
+	FILE *fp;
+	if((fp = fopen(trim_file_name,"%s", temp)) != NULL){
+		char *tok = strtok(temp, ",");
+		int i = 0;
+		while(tok != NULL){
+			switch(i++){
+				case TRIM_ROLL:
+					roll_trim = stof(string(tok));
+					break;
+				case TRIM_PITCH:
+					pitch_trim = stof(string(tok));
+					break;
+				case TRIM_YAW:
+					yaw_trim = stof(string(tok));
+					break;
+			}
+		}
 	}
 }
 
