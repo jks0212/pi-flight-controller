@@ -18,10 +18,14 @@ extern "C" {
 #include <pigpio.h>
 #include <RF24/RF24.h>
 
+#include <sched.h>
+#include <stdint.h>
+#include <sys/syscall.h>
+
 #define GYRO_CAL_NUMS 2000
 #define LOOP_CYCLE 2000
-#define I_INTEGRAL_LIMIT 400
-#define PID_GAIN_LIMIT 400
+#define I_INTEGRAL_LIMIT 200
+#define PID_GAIN_LIMIT 200
 #define LOOP_FREQUENCY (1000000 / LOOP_CYCLE)
 
 #define FLIGHT_MODE_ACRO 1
@@ -82,6 +86,19 @@ extern "C" {
 #define MOTOR_MAX 1900
 #define MOTOR_KEEP_RUNNING 1050
 //#define MOTOR_KEEP_RUNNING 1000
+
+struct sched_attr {
+	uint32_t size;
+	uint32_t sched_policy;
+	uint64_t sched_flags;
+	int32_t sched_nice;
+
+	uint32_t sched_priority;
+
+	uint64_t sched_runtime;
+	uint64_t sched_deadline;
+	uint64_t sched_period;
+};
 
 enum PID_IDX {
 	ROLL_OUTER_P, ROLL_P, ROLL_I, ROLL_D,
@@ -144,6 +161,7 @@ float roll_trim = 0, pitch_trim = 0, yaw_trim = 0;
 
 int mpu_i2c;
 
+static int sched_setattr(pid_t pid, const struct sched_attr *attr, unsigned int flags);
 void init_mpu();
 void init_rf24();
 void read_mpu_data();
@@ -167,6 +185,21 @@ void write_trim();
 // static int i = 0;
 
 int main(int argc, char* argv[]) {
+
+	int result;
+
+	struct sched_attr attr;
+	memset(&attr, 0, sizeof(attr));
+	attr.size = sizeof(struct sched_attr);
+
+	attr.sched_priority = 95;
+	attr.sched_policy = SCHED_FIFO;
+
+	result = sched_setattr(getpid(), &attr, 0);
+	if (result < 0) {
+		cout << "Failed to set as a RT-Process" << endl;
+		return 0;
+	}
 
 	if(gpioInitialise() < 0){
 		cout << "Failed to initialize pigpio" << endl;
@@ -281,8 +314,8 @@ void init_mpu(){
 		cout << "Failed to confiture MPU." << endl;
 		exit(1);
 	}
-	if(i2cWriteByteData(mpu_i2c, 0x1A, 0x02) < 0){
-//	if(i2cWriteByteData(mpu_i2c, 0x1A, 0x03) < 0){
+//	if(i2cWriteByteData(mpu_i2c, 0x1A, 0x02) < 0){
+	if(i2cWriteByteData(mpu_i2c, 0x1A, 0x03) < 0){
 		cout << "Failed to confiture MPU." << endl;
 		exit(1);
 	}
@@ -539,9 +572,10 @@ void receive_messages(){
 
 			green_led_time = LED_ON_TIME;
 
-		} else {
-			cout << "Error to read RF data" << endl;
-		}
+		} 
+		//else {
+		//	cout << "Error to read RF data" << endl;
+		//}
 
 		for(int i=0; i<CMD_BUFF_LEN; i++){
 			rfBuffer[i] = 0;
@@ -564,15 +598,20 @@ void receive_messages(){
 	}
 }
 
+
+static int sched_setattr(pid_t pid, const struct sched_attr *attr, unsigned int flags){
+	return syscall(SYS_sched_setattr, pid, attr, flags);	
+}
+
 void init_pid_values(){
 	pid[ROLL_OUTER_P] = 0;
-	pid[ROLL_P] = 1.7;
-	pid[ROLL_I] = 0.03;
-	pid[ROLL_D] = 13;
+	pid[ROLL_P] = 0;
+	pid[ROLL_I] = 0;
+	pid[ROLL_D] = 0;
 	pid[PITCH_OUTER_P] = 0;
-	pid[PITCH_P] = 1.7;
-	pid[PITCH_I] = 0.03;
-	pid[PITCH_D] = 13;
+	pid[PITCH_P] = 0;
+	pid[PITCH_I] = 0;
+	pid[PITCH_D] = 0;
 	pid[YAW_OUTER_P] = 0;
 	pid[YAW_P] = 0;
 	pid[YAW_I] = 0;
