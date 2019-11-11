@@ -83,7 +83,7 @@ extern "C" {
 #define MOTOR_3 22
 #define MOTOR_4 27
 #define MOTOR_MIN 1000
-#define MOTOR_MAX 1900
+#define MOTOR_MAX 2000
 #define MOTOR_KEEP_RUNNING 1050
 //#define MOTOR_KEEP_RUNNING 1000
 
