@@ -83,7 +83,7 @@ extern "C" {
 #define MOTOR_3 22
 #define MOTOR_4 27
 #define MOTOR_MIN 1000
-#define MOTOR_MAX 2000
+#define MOTOR_MAX 1800
 #define MOTOR_KEEP_RUNNING 1050
 //#define MOTOR_KEEP_RUNNING 1000
 
@@ -182,7 +182,7 @@ void read_trim();
 void write_pid();
 void write_trim();
 
-// static int i = 0;
+ static int i = 0;
 
 int main(int argc, char* argv[]) {
 
@@ -283,13 +283,14 @@ int main(int argc, char* argv[]) {
 
 		gettimeofday(&st, NULL);
 
-	//	if(i++ > 20){
-		//	cout << angle_roll_output << ", " << angle_pitch_output << ", " << gyro_z << endl;
+		if(i++ > 10){
+		//	cout << angle_roll_output << ", " << angle_pitch_output << endl;
+			printf("%5.2f, %5.2f\n", angle_roll_output, angle_pitch_output);
 	//		cout << gyro_x << ", " << gyro_y << ", " << gyro_z << endl;
-	//		i = 0;
-	//	}
+			i = 0;
+		}
 
-	//	cout << "acc x,y,z : " << acc_x << ", " << acc_y << ", " << acc_z << endl;
+	//	cout << output[0] << ", " << output[1] << ", " << output[2] << ", " << output[3] << endl;
 	//	cout << "gyro r,p,y : " << setw(8) << setprecision(3) << gyro_roll << ", ";
 	//	cout << setw(8) << setprecision(3) << gyro_pitch << ", ";
 	//	cout << setw(8) << setprecision(3) << gyro_yaw << endl;
@@ -486,7 +487,7 @@ void calculate_pid(){
 
 void set_motors_output(){
 	if(target_power > 0){
-		int power = MOTOR_MIN + target_power * 9;
+		int power = MOTOR_MIN + target_power * 10;
 		
 		output[0] = power + r_pid_control - p_pid_control - y_pid_control;
 		output[1] = power + r_pid_control + p_pid_control + y_pid_control;
