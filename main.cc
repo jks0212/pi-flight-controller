@@ -83,7 +83,7 @@ extern "C" {
 #define MOTOR_3 22
 #define MOTOR_4 27
 #define MOTOR_MIN 1000
-#define MOTOR_MAX 1800
+#define MOTOR_MAX 1950
 #define MOTOR_KEEP_RUNNING 1050
 //#define MOTOR_KEEP_RUNNING 1000
 
@@ -138,7 +138,9 @@ float pid[12];
 int16_t acc_x, acc_y, acc_z;
 int16_t gyro_x, gyro_y, gyro_z;
 int16_t mpu_temperature;
-int32_t acc_total_vector;
+int64_t acc_total_vector;
+//int64_t big_acc_x, big_acc_y, big_acc_z;
+//long big_acc_x, big_acc_y, big_acc_z;
 
 int flight_mode = FLIGHT_MODE_ANGLE;
 bool initialized = false;
@@ -283,10 +285,13 @@ int main(int argc, char* argv[]) {
 
 		gettimeofday(&st, NULL);
 
-		if(i++ > 10){
-		//	cout << angle_roll_output << ", " << angle_pitch_output << endl;
-			printf("%5.2f, %5.2f\n", angle_roll_output, angle_pitch_output);
-	//		cout << gyro_x << ", " << gyro_y << ", " << gyro_z << endl;
+		if(i++ > 15){
+		//	printf("%5.2f, %5.2f\n", 
+			printf("%5.2f, %5.2f, %5d, %5d\n", 
+		//	angle_roll_output, angle_pitch_output);
+		//	angle_roll, angle_pitch, angle_roll_acc, angle_pitch_acc);
+			angle_pitch_output, angle_roll_output, acc_x, acc_y);
+		//	cout << angle_roll << ", " << angle_pitch << endl;
 			i = 0;
 		}
 
@@ -315,11 +320,11 @@ void init_mpu(){
 		cout << "Failed to confiture MPU." << endl;
 		exit(1);
 	}
-//	if(i2cWriteByteData(mpu_i2c, 0x1A, 0x02) < 0){
 	if(i2cWriteByteData(mpu_i2c, 0x1A, 0x03) < 0){
 		cout << "Failed to confiture MPU." << endl;
 		exit(1);
 	}
+
 //	int8_t power = i2cReadByteData(mpu_i2c, 0x6B);
 //	i2cWriteByteData(mpu_i2c, 0x6b, ~(1 << 6) & power);
 }
@@ -399,15 +404,23 @@ void calculate_angles(){
 	gyro_pitch = (gyro_pitch * 0.7) + ((gyro_y / 65.5) * 0.3);
 	gyro_yaw = (gyro_yaw * 0.7) + ((gyro_z / 65.5) * 0.3);
 
-	// angle_pitch += gyro_x * 0.0000611;
-	angle_pitch += gyro_x * coeff_gyro_angle1;
-	// angle_roll += gyro_y * 0.0000611;
-	angle_roll += gyro_y * coeff_gyro_angle1;
+//	 angle_pitch += gyro_x * 0.0000611;
+//	 angle_roll += gyro_y * 0.0000611;
+	 angle_pitch += gyro_x * 0.0000458;
+	 angle_roll += gyro_y * 0.0000458;
+	//angle_pitch += gyro_x * coeff_gyro_angle1;
+	//angle_roll += gyro_y * coeff_gyro_angle1;
 
-	// angle_pitch += angle_roll * sin(gyro_z * 0.000000533);
-	angle_pitch += angle_roll * sin(gyro_z * coeff_gyro_angle2);
-	// angle_roll -= angle_pitch * sin(gyro_z * 0.000000533);
-	angle_roll -= angle_pitch * sin(gyro_z * coeff_gyro_angle2);
+//	 angle_roll -= angle_pitch * sin(gyro_z * 0.000001066);
+//	 angle_pitch += angle_roll * sin(gyro_z * 0.000001066);
+	 angle_roll -= angle_pitch * sin(gyro_z * 0.000000800);
+	 angle_pitch += angle_roll * sin(gyro_z * 0.000000800);
+
+	//angle_pitch += angle_roll * sin(gyro_z * coeff_gyro_angle2);
+	//angle_roll -= angle_pitch * sin(gyro_z * coeff_gyro_angle2);
+//	big_acc_x = acc_x;
+//	big_acc_y = acc_y;
+//	big_acc_z = acc_z;
 
 	acc_total_vector = sqrt((acc_x * acc_x) + (acc_y * acc_y) + (acc_z * acc_z));
 	if(abs(acc_y) < acc_total_vector){
