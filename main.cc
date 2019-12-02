@@ -128,6 +128,8 @@ const double freq = LOOP_FREQUENCY;
 const double rad = 65.5;
 const double coeff_gyro_angle1 = one / freq / rad;
 const double coeff_gyro_angle2 = coeff_gyro_angle1 * (3.14 / 180);
+const double loop_time = 1 / LOOP_FREQUENCY;
+const double acc_tau = 0.01;
 
 const char pid_file_name[] = "pid.conf";
 const char trim_file_name[] = "trim.conf";
@@ -135,6 +137,7 @@ const char trim_file_name[] = "trim.conf";
 int target_power = 0;
 float pid[12];
 
+int16_t pre_acc_x, pre_acc_y;
 int16_t acc_x, acc_y, acc_z;
 int16_t gyro_x, gyro_y, gyro_z;
 int16_t mpu_temperature;
@@ -351,6 +354,11 @@ void read_mpu_data(){
 	gyro_x = buffer[8] << 8 | buffer[9];
 	gyro_y = buffer[10] << 8 | buffer[11];
 	gyro_z = buffer[12] << 8 | buffer[13];
+
+	acc_x = (acc_tau * pre_acc_x + loop_time * acc_x) / (acc_tau + loop_time);
+	acc_y = (acc_tau * pre_acc_y + loop_time * acc_y) / (acc_tau + loop_time);
+	pre_acc_x = acc_x;
+	pre_acc_y = acc_y;
 }
 
 void calibrate_gyro(){
