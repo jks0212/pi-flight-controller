@@ -129,7 +129,7 @@ const double rad = 65.5;
 const double coeff_gyro_angle1 = one / freq / rad;
 const double coeff_gyro_angle2 = coeff_gyro_angle1 * (3.14 / 180);
 const double loop_time = 1 / LOOP_FREQUENCY;
-const double acc_tau = 0.01;
+const double acc_tau = 0.001;
 
 const char pid_file_name[] = "pid.conf";
 const char trim_file_name[] = "trim.conf";
@@ -147,6 +147,7 @@ int64_t acc_total_vector;
 
 int flight_mode = FLIGHT_MODE_ANGLE;
 bool initialized = false;
+bool lpf_initialized = false;
 bool delayed = false;
 
 long gyro_x_cal, gyro_y_cal, gyro_z_cal;
@@ -287,22 +288,17 @@ int main(int argc, char* argv[]) {
 
 
 		gettimeofday(&st, NULL);
-
+/*
 		if(i++ > 15){
 		//	printf("%5.2f, %5.2f\n", 
-			printf("%5.2f, %5.2f, %5d, %5d\n", 
+			printf("%8.2f, %8.2f, %6d, %6d, %6d\n", 
 		//	angle_roll_output, angle_pitch_output);
 		//	angle_roll, angle_pitch, angle_roll_acc, angle_pitch_acc);
-			angle_pitch_output, angle_roll_output, acc_x, acc_y);
+			angle_pitch_output, angle_roll_output, acc_x, acc_y, acc_z);
 		//	cout << angle_roll << ", " << angle_pitch << endl;
 			i = 0;
 		}
-
-	//	cout << output[0] << ", " << output[1] << ", " << output[2] << ", " << output[3] << endl;
-	//	cout << "gyro r,p,y : " << setw(8) << setprecision(3) << gyro_roll << ", ";
-	//	cout << setw(8) << setprecision(3) << gyro_pitch << ", ";
-	//	cout << setw(8) << setprecision(3) << gyro_yaw << endl;
-	//	cout << "angle roll, pitch : " << angle_roll_output << ", " << angle_pitch_output << endl;
+*/
 
 	}
 
@@ -355,10 +351,13 @@ void read_mpu_data(){
 	gyro_y = buffer[10] << 8 | buffer[11];
 	gyro_z = buffer[12] << 8 | buffer[13];
 
-	acc_x = (acc_tau * pre_acc_x + loop_time * acc_x) / (acc_tau + loop_time);
-	acc_y = (acc_tau * pre_acc_y + loop_time * acc_y) / (acc_tau + loop_time);
-	pre_acc_x = acc_x;
-	pre_acc_y = acc_y;
+//	if(lpf_initialized){	
+//		acc_x = (acc_tau * pre_acc_x + loop_time * acc_x) / (acc_tau + loop_time);
+//		acc_y = (acc_tau * pre_acc_y + loop_time * acc_y) / (acc_tau + loop_time);
+//	} else{
+//		pre_acc_x = acc_x;
+//		pre_acc_y = acc_y;
+//	}
 }
 
 void calibrate_gyro(){
