@@ -14,16 +14,19 @@ extern "C" {
 #include <sys/mman.h>
 #include <string.h>
 #include <unistd.h>
-#include <stdint.h>
 
+#include <stdlib.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
+#include <unistd.h>
+#include <time.h>
 #include <math.h>
 #include <sys/time.h>
 #include <pigpio.h>
 #include <RF24/RF24.h>
-
+#include <sched.h>
+#include <stdint.h>
 #include <sys/syscall.h>
 
 #define RT_PRIORITY (49) /* we use 49 as the PRREMPT_RT use 50
@@ -35,7 +38,6 @@ extern "C" {
 								   faulting */
 
 #define NSEC_PER_SEC    (1000000000) /* The number of nsecs per sec. */
-
 #define GYRO_CAL_NUMS 2000
 #define LOOP_CYCLE 2000
 #define I_INTEGRAL_LIMIT 200
@@ -186,15 +188,12 @@ float roll_trim = 0, pitch_trim = 0, yaw_trim = 0;
 
 int mpu_i2c;
 
-//static int sched_setattr(pid_t pid, const struct sched_attr *attr, unsigned int flags);
-
 // RT-Process related
 static void inc_period(struct period_info *pinfo);
 static void periodic_task_init(struct period_info *pinfo);
 static void wait_rest_of_period(struct period_info *pinfo);
 void stack_prefault(void);
 // Flight Controller related
-void init_mpu();
 void init_mpu();
 void init_rf24();
 void read_mpu_data();
@@ -215,11 +214,7 @@ void read_trim();
 void write_pid();
 void write_trim();
 
-int main(int argc, char* argv[]) {
-
-// TODO Not sure this
-//	int result;
-
+int main(int argc, char* argv[]){
 	// RT-Process related
 	struct sched_param param;
 	// Lock memory
@@ -236,13 +231,17 @@ int main(int argc, char* argv[]) {
 	// Pre-fault our stack
 	stack_prefault();
 
+
+
 	// Flight Controller related
+//	struct timeval start, end;
 	struct period_info pinfo;
 
 	if(gpioInitialise() < 0){
 		cout << "Failed to initialize pigpio" << endl;
 		return 0;
 	}
+
 
 	gpioSetMode(LED_RED, PI_OUTPUT);
 	gpioSetMode(LED_GREEN, PI_OUTPUT);
@@ -270,8 +269,11 @@ int main(int argc, char* argv[]) {
 
 	periodic_task_init(&pinfo);
 
+//	gettimeofday(&start, NULL);
+
 //	gettimeofday(&st, NULL);
 //	gettimeofday(&sending_timer, NULL);
+
 	while(1){
 		receive_messages();
 		read_mpu_data();
@@ -279,71 +281,50 @@ int main(int argc, char* argv[]) {
 		calculate_pid();
 		set_motors_output();
 
+		gettimeofday(&et, NULL);
+
+
 		gpioPWM(MOTOR_1, output[0]);
-	//	gpioPWM(MOTOR_2, output[1]);
-	//	gpioPWM(MOTOR_3, output[2]);
+		gpioPWM(MOTOR_2, output[1]);
+		gpioPWM(MOTOR_3, output[2]);
 		gpioPWM(MOTOR_4, output[3]);
 
+//		int elapsed = utime_diff(st, led_tv) / 1000;
 		if(green_led_time > 0){
 			gpioWrite(LED_GREEN, 1);
+		//	green_led_time -= elapsed;
 			green_led_time -= 2;
 		} else{
 			gpioWrite(LED_GREEN, 0);
 		}
 		if(red_led_time > 0){
 			gpioWrite(LED_RED, 1);
+		//	red_led_time -= elapsed;
 			red_led_time -= 2;
 		} else{
 			gpioWrite(LED_RED, 0);
 		}
 
-		wait_rest_of_period(&pinfo);
-
+	//	gettimeofday(&st, NULL);
 
 /*
-// TODO Not sure this
-//		gettimeofday(&et, NULL);
+		printf("cycle..");
 
-		int cycle_time = utime_diff(st, et);
-		delayed = false;
-		if(cycle_time >= LOOP_CYCLE){
-			// cout << "Cycle over: " << cycle_time << "us" << endl;
-			red_led_time = LED_ON_TIME;
-			delayed = true;
-		} else{
-			while(utime_diff(st, et) < LOOP_CYCLE){
-				gettimeofday(&et, NULL);
-			}
+		gettimeofday(&end, NULL);
+
+		int took = end.tv_usec - start.tv_usec;
+		int sec = end.tv_sec - start.tv_sec;
+		if(sec > 0){
+			took = (sec * 1000000) + took;
 		}
+		
+		printf("%d\n", took);
 
-		if(!delayed){
-			gpioPWM(MOTOR_1, output[0]);
-			gpioPWM(MOTOR_2, output[1]);
-			gpioPWM(MOTOR_3, output[2]);
-			gpioPWM(MOTOR_4, output[3]);
-		}
-
-		gettimeofday(&led_tv, NULL);
-
-		int elapsed = utime_diff(st, led_tv) / 1000;
-		if(green_led_time > 0){
-			gpioWrite(LED_GREEN, 1);
-			green_led_time -= elapsed;
-		} else{
-			gpioWrite(LED_GREEN, 0);
-		}
-		if(red_led_time > 0){
-			gpioWrite(LED_RED, 1);
-			red_led_time -= elapsed;
-		} else{
-			gpioWrite(LED_RED, 0);
-		}
-
-		gettimeofday(&st, NULL);
+		gettimeofday(&start, NULL);
 */
-	}
 
-	return 0;
+		wait_rest_of_period(&pinfo);
+	}
 }
 
 // RT-Process related
@@ -408,7 +389,6 @@ void init_rf24(){
 	radio.setPALevel(RF24_PA_MAX);
 	radio.openWritingPipe(pipes[1]);
 	radio.openReadingPipe(1, pipes[0]);
-	radio.setDataRate(RF24_250KBPS);
 	radio.startListening();
 	radio.printDetails();
 }
@@ -693,11 +673,6 @@ void receive_messages(){
 	}
 }
 
-/*
-static int sched_setattr(pid_t pid, const struct sched_attr *attr, unsigned int flags){
-	return syscall(SYS_sched_setattr, pid, attr, flags);	
-}
-*/
 
 void init_pid_values(){
 	pid[ROLL_OUTER_P] = 0;
@@ -901,13 +876,6 @@ void read_trim(){
 		}
 	}
 }
-
-
-
-
-
-
-
 
 
 
